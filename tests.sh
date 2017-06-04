@@ -1,0 +1,91 @@
+#!/bin/sh
+
+set -e
+
+CONF_QMAIL=/var/tmp/varqmail
+CONF_CC="gcc -O2 -include /usr/include/errno.h"
+
+make_clean() {
+	rm -f `cat TARGETS`
+}
+
+configure_errno_workaround() {
+	[ "gcc -O2" = "`head -1 conf-cc`" ] && echo "${CONF_CC}" > conf-cc || true
+}
+
+set_fake_paths_for_test() {
+	mkdir -p ${CONF_QMAIL}
+	[ "/var/qmail" = "`head -1 conf-qmail`" ] && echo "${CONF_QMAIL}" > conf-qmail || true
+}
+
+build_ofmipd() {
+	make ofmipd >/dev/null 2>&1
+}
+
+test_ofmipd() {
+	test_verb "" ""
+	test_verb "SCHMONZ" "502 unimplemented (#5.5.1)"
+	test_verb "HELO" "250 ofmipd.local"
+	test_verb "EHLO" "250-ofmipd.local\n250-PIPELINING\n250 8BITMIME"
+	test_verb "RSET" "250 flushed"
+	test_verb "MAIL SCHMONZ: <one@two.three>" "250 ok"
+	test_verb "RCPT SCHMONZ: <four@five.six>" "503 MAIL first (#5.5.1)"
+
+	test_verb \
+		"MAIL SCHMONZ: <one@two.three>" "250 ok" \
+		"RCPT SCHMONZ: <four@five.six>" "250 ok"
+
+	# XXX DATA
+	# XXX QUIT
+	# XXX HELP
+	# XXX NOOP
+	# XXX VRFY
+	# XXX lowercase verbs
+	# XXX MAIL with and without FROM:
+	# XXX MAIL FROM: with and without <>
+}
+
+test_verb() {
+	local _banner _expected _actual
+	_banner="220 ofmipd.local ESMTP"
+	_expected="${_banner}"
+	_actual=""
+
+	while [ $# -ge 2 ]; do
+		[ -n "$2" ] && _expected="${_expected}\n$2"
+		if [ -z "${_actual}" ]; then
+			_actual="$1"
+		else
+			_actual="${_actual}\n$1"
+		fi
+		shift; shift
+	done
+
+	_expected=$(echo "${_expected}" | sed -e 's|$|\r|g')
+
+	if [ -z "${_actual}" ]; then
+		_actual=$(./ofmipd < /dev/null) || true
+	else
+		_actual=$(echo "${_actual}" | ./ofmipd) || true
+	fi
+
+	strings_equal "${_expected}" "${_actual}"
+}
+
+strings_equal() {
+	if [ "${_expected}" != "${_actual}" ]; then
+		echo "=> Expected: ${_expected}" | cat -v
+		echo "=>   Actual: ${_actual}"   | cat -v
+	fi
+}
+
+main() {
+	[ "clean" = "$1" ] && make_clean
+	configure_errno_workaround
+	set_fake_paths_for_test
+	build_ofmipd
+	test_ofmipd
+}
+
+main "$@"
+exit $?

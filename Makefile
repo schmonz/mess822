@@ -261,12 +261,16 @@ compile constmap.c constmap.h alloc.h case.h
 	./compile constmap.c
 
 env.a: \
-makelib env.o
-	./makelib env.a env.o
+makelib env.o envread.o
+	./makelib env.a env.o envread.o
 
 env.o: \
-compile env.c str.h env.h
+compile env.c str.h alloc.h env.h
 	./compile env.c
+
+envread.o: \
+compile envread.c env.h str.h
+	./compile envread.c
 
 error.a: \
 makelib error.o error_str.o
@@ -540,11 +544,13 @@ rewritehost.h rwhconfig.h strerr.h
 
 ofmipd: \
 load ofmipd.o rewritehost.o rwhconfig.o config.o qmail.o auto_qmail.o \
+base64.o byte_zero.o \
 timeoutread.o timeoutwrite.o commands.o env.a cdb.a mess822.a \
 libtai.a getln.a strerr.a substdio.a stralloc.a alloc.a error.a \
 case.a str.a fs.a open.a wait.a sig.a fd.a
 	./load ofmipd rewritehost.o rwhconfig.o config.o qmail.o \
 	auto_qmail.o timeoutread.o timeoutwrite.o commands.o env.a \
+	base64.o byte_zero.o \
 	cdb.a mess822.a libtai.a getln.a strerr.a substdio.a \
 	stralloc.a alloc.a error.a case.a str.a fs.a open.a wait.a \
 	sig.a fd.a 
@@ -735,14 +741,18 @@ compile sig_pipe.c sig.h
 
 str.a: \
 makelib str_len.o str_diff.o str_diffn.o str_chr.o str_rchr.o \
-str_start.o byte_chr.o byte_rchr.o byte_copy.o byte_cr.o
+str_start.o byte_chr.o byte_rchr.o byte_copy.o byte_cr.o str_cpy.o
 	./makelib str.a str_len.o str_diff.o str_diffn.o str_chr.o \
 	str_rchr.o str_start.o byte_chr.o byte_rchr.o byte_copy.o \
-	byte_cr.o
+	byte_cr.o str_cpy.o
 
 str_chr.o: \
 compile str_chr.c str.h
 	./compile str_chr.c
+
+str_cpy.o: \
+compile str_cpy.c str.h
+	./compile str_cpy.c
 
 str_diff.o: \
 compile str_diff.c str.h

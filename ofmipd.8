@@ -3,8 +3,11 @@
 ofmipd \- accept outgoing mail through OFMIP
 .SH SYNOPSIS
 .B ofmipd
-[
 .I name.cdb
+[
+.I hostname
+.I checkpasswd
+.I truepgm
 ]
 .SH DESCRIPTION
 .B ofmipd
@@ -31,15 +34,33 @@ on a free TCP port.
 Some sites use port 26.
 Some sites use port 25 on an IP address that does not receive incoming mail.
 
-Note that
+The
+.I hostname
+argument is the name of the mail host, intended to create CRAM password
+challenges but currently ignored.
+The
+.I checkpasswd
+argument
+is the name of a password checker that uses the same calling conventions as
+the qmail POP3 checkpasswd.
+The
+.I truepgm
+argument is the name a program that succeeds, such as
+.B /bin/true\c
+, for POP3 checkpasswd compatibility.
+
+If the environment variable RELAYCLIENT is set,
+or the client logs in with AUTH,
 .B ofmipd
 will relay messages to any destination.
-It should be invoked
-only for connections from preauthorized users.
+If not, it will reject any MAIL FROM, RCPT TO, or DATA command with a 503
+error.
 With
 .B tcpserver
-you can deny connections
-that do not come from preauthorized IP addresses such as 127.0.0.1.
+you can set RELAYCLIENT for 
+preauthorized IP addresses such as 127.0.0.1.
+The contents of RELAYCLIENT are ignored; in particular, they are not
+appended to destnation mail addresses.
 
 Most MUAs that claim to be ``SMTP clients''
 are actually OFMIP clients.
@@ -92,6 +113,10 @@ is supplied.
 See
 .BR ofmipname (8)
 for further details.
+The
+.I name.cdb
+argument must be supplied but may be a null string of no name
+transformation file is to be used.
 
 .B ofmipd
 accepts LF and CR LF as line terminators inside messages.

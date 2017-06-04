@@ -1,9 +1,16 @@
 #!/bin/sh
 
-set -e
 
 CONF_QMAIL=/var/tmp/varqmail
 CONF_CC="gcc -O2 -include /usr/include/errno.h"
+
+bail_on_any_nonzero_exit_code() {
+	set -e
+}
+
+show_commands_being_run() {
+	set -x
+}
 
 make_clean() {
 	rm -f `cat TARGETS`
@@ -11,6 +18,10 @@ make_clean() {
 
 configure_errno_workaround() {
 	[ "gcc -O2" = "`head -1 conf-cc`" ] && echo "${CONF_CC}" > conf-cc || true
+}
+
+configure_strerr_sys_workaround() {
+	sed -e 's|^struct strerr strerr_sys;$|struct strerr strerr_sys = {0,0,0,0};|g' < strerr_sys.c > strerr_sys.c.new && mv strerr_sys.c.new strerr_sys.c
 }
 
 set_fake_paths_for_test() {
@@ -61,7 +72,7 @@ test_verb() {
 		shift; shift
 	done
 
-	_expected=$(echo "${_expected}" | sed -e 's|$|\r|g')
+	_expected=$(echo "${_expected}" | sed -e 's|$||g')
 
 	if [ -z "${_actual}" ]; then
 		_actual=$(./ofmipd < /dev/null) || true
@@ -80,8 +91,11 @@ strings_equal() {
 }
 
 main() {
+	bail_on_any_nonzero_exit_code
 	[ "clean" = "$1" ] && make_clean
+	[ "verbose" = "$1" ] && show_commands_being_run
 	configure_errno_workaround
+	configure_strerr_sys_workaround
 	set_fake_paths_for_test
 	build_ofmipd
 	test_ofmipd

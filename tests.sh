@@ -43,7 +43,7 @@ test_ofmipd() {
 		""
 
 	test_verb \
-		"SCHMONZ" \
+		"EXPN so-and-so" \
 		"502 unimplemented (#5.5.1)"
 
 	test_verb \
@@ -89,14 +89,36 @@ test_ofmipd() {
 		"don't mind if I do.\nI got lots to say.\n." \
 		"250 ok"
 
+	test_verb \
+		"QUIT" \
+		"221 ofmipd.local"
+	test_verb \
+		"MAIL me: one" \
+		"250 ok" \
+		"QUIT" \
+		"221 ofmipd.local"
 
-	# XXX QUIT
-	# XXX HELP
-	# XXX NOOP
-	# XXX VRFY
-	# XXX lowercase verbs
-	# XXX MAIL with and without FROM:
-	# XXX MAIL FROM: with and without <>
+	test_verb \
+		"HELP" \
+		"214 qmail home page: http://pobox.com/~djb/qmail.html"
+	test_verb \
+		"mail me: one" \
+		"250 ok" \
+		"help me please" \
+		"214 qmail home page: http://pobox.com/~djb/qmail.html"
+
+	test_verb \
+		"NOOP" \
+		"250 ok"
+	test_verb \
+		"mail me: one" \
+		"250 ok" \
+		"noop whatever else" \
+		"250 ok"
+
+	test_verb \
+		"VRFY so-and-so" \
+		"252 send some mail, i'll try my best"
 }
 
 test_verb() {

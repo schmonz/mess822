@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 CONF_QMAIL=/var/tmp/varqmail
 CONF_CC="gcc -O2 -include /usr/include/errno.h"
 
@@ -14,6 +13,8 @@ show_commands_being_run() {
 
 make_clean() {
 	rm -f `cat TARGETS`
+	git co -- INSTALL conf-cc conf-qmail strerr_sys.c
+	exit 0
 }
 
 configure_errno_workaround() {

@@ -52,34 +52,41 @@ test_ofmipd() {
 
 	test_verb \
 		"EHLO" \
-		"250-ofmipd.local\n250-PIPELINING\n250 8BITMIME"
+		"250-ofmipd.local\n250-AUTH LOGIN PLAIN\n250-AUTH=LOGIN PLAIN\n250-PIPELINING\n250 8BITMIME"
 
 	test_verb \
 		"RSET" \
 		"250 flushed"
 
-	test_verb \
+	test_norelayclient_verb_unauthorized \
+		"MAIL SCHMONZ: <one@two.three>"
+	test_relayclient_verb \
 		"MAIL SCHMONZ: <one@two.three>" \
 		"250 ok"
 
-	test_verb \
+	test_norelayclient_verb_unauthorized \
+		"RCPT SCHMONZ: <four@five.six>"
+	test_relayclient_verb \
 		"RCPT SCHMONZ: <four@five.six>" \
 		"503 MAIL first (#5.5.1)"
-	test_verb \
+
+	test_relayclient_verb \
 		"MAIL SCHMONZ: <one@two.three>" \
 		"250 ok" \
 		"RCPT SCHMONZ: <four@five.six>" \
 		"250 ok"
 
-	test_verb \
+	test_norelayclient_verb_unauthorized \
+		"DATA"
+	test_relayclient_verb \
 		"DATA" \
 		"503 MAIL first (#5.5.1)"
-	test_verb \
+	test_relayclient_verb \
 		"MAIL me: one" \
 		"250 ok" \
 		"DATA" \
 		"503 RCPT first (#5.5.1)"
-	test_verb \
+	test_relayclient_verb \
 		"MAIL me: one" \
 		"250 ok" \
 		"RCPT you: two" \
@@ -92,7 +99,7 @@ test_ofmipd() {
 	test_verb \
 		"QUIT" \
 		"221 ofmipd.local"
-	test_verb \
+	test_relayclient_verb \
 		"MAIL me: one" \
 		"250 ok" \
 		"QUIT" \
@@ -101,7 +108,7 @@ test_ofmipd() {
 	test_verb \
 		"HELP" \
 		"214 qmail home page: http://pobox.com/~djb/qmail.html"
-	test_verb \
+	test_relayclient_verb \
 		"mail me: one" \
 		"250 ok" \
 		"help me please" \
@@ -110,7 +117,7 @@ test_ofmipd() {
 	test_verb \
 		"NOOP" \
 		"250 ok"
-	test_verb \
+	test_relayclient_verb \
 		"mail me: one" \
 		"250 ok" \
 		"noop whatever else" \
@@ -119,6 +126,19 @@ test_ofmipd() {
 	test_verb \
 		"VRFY so-and-so" \
 		"252 send some mail, i'll try my best"
+}
+
+test_norelayclient_verb_unauthorized() {
+	test_verb \
+		"$1" \
+		"503 authorize or check your mail before sending (#5.5.1)"
+}
+
+test_relayclient_verb() {
+	RELAYCLIENT=""
+	export RELAYCLIENT
+	test_verb "$@"
+	unset RELAYCLIENT
 }
 
 test_verb() {

@@ -184,3 +184,7 @@ setup
 instcheck.o
 instcheck
 check
+base64.o
+byte_zero.o
+envread.o
+str_cpy.o

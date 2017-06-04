@@ -12,6 +12,7 @@ show_commands_being_run() {
 }
 
 make_clean() {
+	rm -rf "${CONF_QMAIL}"
 	rm -f `cat TARGETS`
 	git co -- INSTALL conf-cc conf-qmail strerr_sys.c
 	exit 0
@@ -25,9 +26,11 @@ configure_strerr_sys_workaround() {
 	sed -e 's|^struct strerr strerr_sys;$|struct strerr strerr_sys = {0,0,0,0};|g' < strerr_sys.c > strerr_sys.c.new && mv strerr_sys.c.new strerr_sys.c
 }
 
-set_fake_paths_for_test() {
-	mkdir -p ${CONF_QMAIL}
+set_fakes_for_test() {
+	mkdir -p "${CONF_QMAIL}/bin"
 	[ "/var/qmail" = "`head -1 conf-qmail`" ] && echo "${CONF_QMAIL}" > conf-qmail || true
+	echo "#!/bin/sh\nexit 0" > "${CONF_QMAIL}/bin/qmail-queue"
+	chmod +x "${CONF_QMAIL}/bin/qmail-queue"
 }
 
 build_ofmipd() {
@@ -38,21 +41,27 @@ test_ofmipd() {
 	test_verb \
 		"" \
 		""
+
 	test_verb \
 		"SCHMONZ" \
 		"502 unimplemented (#5.5.1)"
+
 	test_verb \
 		"HELO" \
 		"250 ofmipd.local"
+
 	test_verb \
 		"EHLO" \
 		"250-ofmipd.local\n250-PIPELINING\n250 8BITMIME"
+
 	test_verb \
 		"RSET" \
 		"250 flushed"
+
 	test_verb \
 		"MAIL SCHMONZ: <one@two.three>" \
 		"250 ok"
+
 	test_verb \
 		"RCPT SCHMONZ: <four@five.six>" \
 		"503 MAIL first (#5.5.1)"
@@ -62,7 +71,25 @@ test_ofmipd() {
 		"RCPT SCHMONZ: <four@five.six>" \
 		"250 ok"
 
-	# XXX DATA
+	test_verb \
+		"DATA" \
+		"503 MAIL first (#5.5.1)"
+	test_verb \
+		"MAIL me: one" \
+		"250 ok" \
+		"DATA" \
+		"503 RCPT first (#5.5.1)"
+	test_verb \
+		"MAIL me: one" \
+		"250 ok" \
+		"RCPT you: two" \
+		"250 ok" \
+		"DATA" \
+		"354 go ahead" \
+		"don't mind if I do.\nI got lots to say.\n." \
+		"250 ok"
+
+
 	# XXX QUIT
 	# XXX HELP
 	# XXX NOOP
@@ -112,7 +139,7 @@ main() {
 	[ "verbose" = "$1" ] && show_commands_being_run
 	configure_errno_workaround
 	configure_strerr_sys_workaround
-	set_fake_paths_for_test
+	set_fakes_for_test
 	build_ofmipd
 	test_ofmipd
 }

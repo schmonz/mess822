@@ -35,17 +35,32 @@ build_ofmipd() {
 }
 
 test_ofmipd() {
-	test_verb "" ""
-	test_verb "SCHMONZ" "502 unimplemented (#5.5.1)"
-	test_verb "HELO" "250 ofmipd.local"
-	test_verb "EHLO" "250-ofmipd.local\n250-PIPELINING\n250 8BITMIME"
-	test_verb "RSET" "250 flushed"
-	test_verb "MAIL SCHMONZ: <one@two.three>" "250 ok"
-	test_verb "RCPT SCHMONZ: <four@five.six>" "503 MAIL first (#5.5.1)"
-
 	test_verb \
-		"MAIL SCHMONZ: <one@two.three>" "250 ok" \
-		"RCPT SCHMONZ: <four@five.six>" "250 ok"
+		"" \
+		""
+	test_verb \
+		"SCHMONZ" \
+		"502 unimplemented (#5.5.1)"
+	test_verb \
+		"HELO" \
+		"250 ofmipd.local"
+	test_verb \
+		"EHLO" \
+		"250-ofmipd.local\n250-PIPELINING\n250 8BITMIME"
+	test_verb \
+		"RSET" \
+		"250 flushed"
+	test_verb \
+		"MAIL SCHMONZ: <one@two.three>" \
+		"250 ok"
+	test_verb \
+		"RCPT SCHMONZ: <four@five.six>" \
+		"503 MAIL first (#5.5.1)"
+	test_verb \
+		"MAIL SCHMONZ: <one@two.three>" \
+		"250 ok" \
+		"RCPT SCHMONZ: <four@five.six>" \
+		"250 ok"
 
 	# XXX DATA
 	# XXX QUIT

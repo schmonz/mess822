@@ -41,9 +41,11 @@ I'm going to try to get there like so:
 
 1. Characterize upstream `ofmipd`'s behaviors with automated tests
     - the verbs it offers
-    - what it does with `RELAYCLIENT`, other env vars
+    - how it always relays, regardless of `RELAYCLIENT`
 2. Apply John Levine's SMTP AUTH patch (that I'm already using)
 3. Add more characterization tests around AUTH behaviors
+    - how some verbs now reject unless `RELAYCLIENT` is set
+    - how SMTP AUTH causes `RELAYCLIENT` to be set
 4. Write tests for what I want to happen
     - `ofmipd` does not offer SMTP AUTH
     - `ofmipup` rejects non-AUTH verbs

@@ -68,7 +68,7 @@ I'm going to try to get there like so:
 
 This might be an unsafe design.
 
-stock `ofmipd` doesn't do SMTP AUTH at all. It runs as whatever user the sysadmin started it as, maybe allows relaying from certain IPs, does whatever address rewriting it's configured to do, and injects messages into the queue.
+stock `ofmipd` doesn't do SMTP AUTH at all. It runs as whatever user the sysadmin started it as, relays for anyone who can connect, does whatever address rewriting it's configured to do, and injects messages into the queue.
 
 `ofmipd` with the SMTP AUTH patch is the same, plus it allows relaying from users who have authenticated with whatever `checkpassword` the sysadmin chose. I chose DJB's that works with system passwords. In my configuration, because it's run by the `qmaild` user, it has to be setuid-root.
 

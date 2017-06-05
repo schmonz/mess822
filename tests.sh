@@ -20,7 +20,7 @@ make_clean() {
 	git checkout -- INSTALL conf-cc conf-qmail strerr_sys.c
 
 	_file=ofmipd.c
-	if grep -q 'include/sleep.h' ${_file}; then
+	if grep -q 'tmp/include/sleep.h' ${_file}; then
 		sed -e '/^\#include "tmp\/include\/sleep.h"$/d' < ${_file} > ${_file}.new
 		mv ${_file}.new ${_file}
 	fi
@@ -64,7 +64,7 @@ set_fakes_for_test() {
 	chmod +x "${CONF_QMAIL}/bin/checkpassword"
 
 	if [ ! -f "${CONF_QMAIL}/include/sleep.h" ]; then
-		echo 'unsigned int sleep(unsigned int seconds) { return; }' >> ${CONF_QMAIL}/include/sleep.h
+		echo 'unsigned int sleep(unsigned int seconds) { return 0; }' >> ${CONF_QMAIL}/include/sleep.h
 	fi
 }
 

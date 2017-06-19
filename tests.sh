@@ -58,10 +58,12 @@ unconfigure_sleep_workaround() {
 }
 
 set_fakes_for_test() {
-	mkdir -p "${CONF_QMAIL}/bin" "${CONF_QMAIL}/include"
+	mkdir -p "${CONF_QMAIL}/bin" "${CONF_QMAIL}/include" "${CONF_QMAIL}/log"
 	[ "/var/qmail" = "`head -1 conf-qmail`" ] && echo "${CONF_QMAIL}" > conf-qmail || true
 
-	echo "#!/bin/sh\nexit 0" > "${CONF_QMAIL}/bin/qmail-queue"
+	echo "#!/bin/sh\ntee ${CONF_QMAIL}/log/message\nexit 31" > "${CONF_QMAIL}/bin/log-and-reject"
+	chmod +x "${CONF_QMAIL}/bin/log-and-reject"
+	echo "#!/bin/sh\nqmail-qfilter ${CONF_QMAIL}/bin/log-and-reject" > "${CONF_QMAIL}/bin/qmail-queue"
 	chmod +x "${CONF_QMAIL}/bin/qmail-queue"
 
 	echo '#!/bin/sh\nexec "$@"' > ${CONF_QMAIL}/bin/checkpassword-succeeds
@@ -156,7 +158,7 @@ test_unauth_verbs() {
 		"DATA" \
 		"354 go ahead" \
 		"don't mind if I do.\nI got lots to say.\n." \
-		"250 ok"
+		"554 mail server permanently rejected message (#5.3.0)"
 
 	test_verb \
 		"it knows about QUIT" \

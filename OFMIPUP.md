@@ -46,6 +46,8 @@ I'm going to try to get there like so:
 3. Add more characterization tests around AUTH behaviors
     - how some verbs now reject unless `RELAYCLIENT` is set
     - how SMTP AUTH causes `RELAYCLIENT` to be set
+    - fake more qmail-queue, test what happens to submitted messages
+    - see what happens with `TCPREMOTEINFO`, `TCPREMOTEIP`
 4. Write shell-level tests for what I want to happen
     - `ofmipd` by itself does not offer SMTP AUTH
     - `ofmipd` by itself is an open relay

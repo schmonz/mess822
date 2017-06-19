@@ -16,17 +16,10 @@
 #include "tai.h"
 #include "caltime.h"
 #include "cdb.h"
-#include "base64.h"
-#include "wait.h"
-#include "fd.h"
-#include "byte.h"
-#include "case.h"
-  
-#undef AUTHCRAM			/* don't define, not fully implemented */
 
 int timeout = 1200;
 
-char *relayclient;
+char *ofmipup;
 
 int safewrite(fd,buf,len) int fd; char *buf; int len;
 {
@@ -42,9 +35,18 @@ substdio ssout = SUBSTDIO_FDBUF(safewrite,1,ssoutbuf,sizeof ssoutbuf);
 void flush() { substdio_flush(&ssout); }
 void out(s) char *s; { substdio_puts(&ssout,s); }
 
-void die_read() { _exit(1); }
-void nomem() { out("451 out of memory (#4.3.0)\r\n"); flush(); _exit(1); }
-void die_config() { out("451 unable to read configuration (#4.3.0)\r\n"); flush(); _exit(1); }
+int exit1()
+{
+  flush();
+  if (ofmipup)
+    _exit(3);
+  else
+    _exit(1);
+}
+
+void die_read() { exit1(); }
+void nomem() { out("451 out of memory (#4.3.0)\r\n"); flush(); exit1(); }
+void die_config() { out("451 unable to read configuration (#4.3.0)\r\n"); flush(); exit1(); }
 void smtp_quit() { out("221 ofmipd.local\r\n"); flush(); _exit(0); }
 void smtp_help() { out("214 qmail home page: http://pobox.com/~djb/qmail.html\r\n"); }
 void smtp_noop() { out("250 ok\r\n"); }
@@ -55,16 +57,6 @@ void err_wantmail() { out("503 MAIL first (#5.5.1)\r\n"); }
 void err_wantrcpt() { out("503 RCPT first (#5.5.1)\r\n"); }
 void err_qqt() { out("451 qqt failure (#4.3.0)\r\n"); }
 void err_cdb() { out("451 unable to read cdb (#4.3.0)\r\n"); }
-int err_child() { out("454 oops, problem with child and I can't auth (#4.3.0)\r\n"); return -1; }
-int err_fork() { out("454 oops, child won't start and I can't auth (#4.3.0)\r\n"); return -1; }
-int err_pipe() { out("454 oops, unable to open pipe and I can't auth (#4.3.0)\r\n"); return -1; }
-int err_write() { out("454 oops, unable to write pipe and I can't auth (#4.3.0)\r\n"); return -1; }
-void err_authd() { out("503 you're already authenticated (#5.5.0)\r\n"); }
-void err_authmail() { out("503 no auth during mail transaction (#5.5.0)\r\n"); }
-int err_noauth() { out("504 auth type unimplemented (#5.5.1)\r\n"); return -1; }
-int err_authabrt() { out("501 auth exchange cancelled (#5.0.0)\r\n"); return -1; }
-int err_input() { out("501 malformed auth input (#5.5.4)\r\n"); return -1; }
-int err_notauth() { out("503 authorize or check your mail before sending (#5.5.1)\r\n"); return -1; }
 
 config_str rewrite = CONFIG_STR;
 stralloc idappend = {0};
@@ -135,15 +127,7 @@ void smtp_helo(arg) char *arg;
 void smtp_ehlo(arg) char *arg;
 {
   seenmail = 0;
-  out("250-ofmipd.local");
-#ifdef AUTHCRAM
-  out("\r\n250-AUTH LOGIN CRAM-MD5 PLAIN");
-  out("\r\n250-AUTH=LOGIN CRAM-MD5 PLAIN");
-#else
-  out("\r\n250-AUTH LOGIN PLAIN");
-  out("\r\n250-AUTH=LOGIN PLAIN");
-#endif
-  out("\r\n250-PIPELINING\r\n250 8BITMIME\r\n");
+  out("250-ofmipd.local\r\n250-PIPELINING\r\n250 8BITMIME\r\n");
 }
 void smtp_rset()
 {
@@ -152,7 +136,6 @@ void smtp_rset()
 }
 void smtp_mail(arg) char *arg;
 {
-  if (!relayclient) { err_notauth(); return; }
   if (!addrparse(arg)) { err_syntax(); return; }
 
   name = 0;
@@ -180,7 +163,6 @@ void smtp_mail(arg) char *arg;
   out("250 ok\r\n");
 }
 void smtp_rcpt(arg) char *arg; {
-  if (!relayclient) { err_notauth(); return; }
   if (!seenmail) { err_wantmail(); return; }
   if (!addrparse(arg)) { err_syntax(); return; }
   if (!stralloc_0(&rwaddr)) nomem();
@@ -374,6 +356,37 @@ void blast()
     finishheader();
 }
 
+stralloc received = {0};
+
+void smtp_data() {
+  struct tai now;
+  char *qqx;
+
+  tai_now(&now);
+  caltime_utc(&datastart.ct,&now,(int *) 0,(int *) 0);
+  datastart.known = 1;
+  if (!mess822_date(&datastamp,&datastart)) nomem();
+ 
+  if (!seenmail) { err_wantmail(); return; }
+  if (!rcptto.len) { err_wantrcpt(); return; }
+  seenmail = 0;
+  if (qmail_open(&qqt) == -1) { err_qqt(); return; }
+  out("354 go ahead\r\n");
+ 
+  qmail_put(&qqt,received.s,received.len);
+  qmail_put(&qqt,datastamp.s,datastamp.len);
+  qmail_puts(&qqt,"\n");
+  blast();
+  qmail_from(&qqt,mailfrom.s);
+  qmail_put(&qqt,rcptto.s,rcptto.len);
+ 
+  qqx = qmail_close(&qqt);
+  if (!*qqx) { out("250 ok\r\n"); return; }
+  if (*qqx == 'D') out("554 "); else out("451 ");
+  out(qqx + 1);
+  out("\r\n");
+}
+
 void safecats(out,in)
 stralloc *out;
 char *in;
@@ -390,15 +403,12 @@ char *in;
   }
 }
 
-stralloc received = {0};
-char *remoteinfo;
-
 void received_init()
 {
   char *x;
 
   if (!stralloc_copys(&received,"Received: (ofmipd ")) nomem();
-  x = remoteinfo;
+  x = env_get("TCPREMOTEINFO");
   if (x) {
     safecats(&received,x);
     if (!stralloc_append(&received,"@")) nomem();
@@ -409,258 +419,19 @@ void received_init()
   if (!stralloc_cats(&received,"); ")) nomem();
 }
 
-void smtp_data() {
-  struct tai now;
-  char *qqx;
-
-  tai_now(&now);
-  caltime_utc(&datastart.ct,&now,(int *) 0,(int *) 0);
-  datastart.known = 1;
-  if (!mess822_date(&datastamp,&datastart)) nomem();
- 
-  if (!relayclient) { err_notauth(); return; }
-  if (!seenmail) { err_wantmail(); return; }
-  if (!rcptto.len) { err_wantrcpt(); return; }
-  seenmail = 0;
-  if (qmail_open(&qqt) == -1) { err_qqt(); return; }
-  out("354 go ahead\r\n");
- 
-  received_init();
-  qmail_put(&qqt,received.s,received.len);
-  qmail_put(&qqt,datastamp.s,datastamp.len);
-  qmail_puts(&qqt,"\n");
-  blast();
-  qmail_from(&qqt,mailfrom.s);
-  qmail_put(&qqt,rcptto.s,rcptto.len);
- 
-  qqx = qmail_close(&qqt);
-  if (!*qqx) { out("250 ok\r\n"); return; }
-  if (*qqx == 'D') out("554 "); else out("451 ");
-  out(qqx + 1);
-  out("\r\n");
-}
-
-#ifdef AUTHCRAM
-char unique[FMT_ULONG + FMT_ULONG + 3];
-#endif
-static stralloc authin = {0};
-static stralloc user = {0};
-static stralloc pass = {0};
-static stralloc resp = {0};
-static stralloc slop = {0};
-char *hostname;
-char **childargs;
-substdio ssup;
-char upbuf[128];
-int authd = 0;
-
-int authgetl(void) {
-  int i;
-
-  if (!stralloc_copys(&authin, "")) nomem();
-
-  for (;;) {
-    if (!stralloc_readyplus(&authin,1)) nomem(); /* XXX */
-    i = substdio_get(&ssin,authin.s + authin.len,1);
-    if (i != 1) die_read();
-    if (authin.s[authin.len] == '\n') break;
-    ++authin.len;
-  }
-
-  if (authin.len > 0) if (authin.s[authin.len - 1] == '\r') --authin.len;
-  authin.s[authin.len] = 0;
-
-  if (*authin.s == '*' && *(authin.s + 1) == 0) { return err_authabrt(); }
-  if (authin.len == 0) { return err_input(); }
-  return authin.len;
-}
-
-int authenticate(void)
+void smtp_greet()
 {
-  int child;
-  int wstat;
-  int pi[2];
-
-  if (!stralloc_0(&user)) nomem();
-  if (!stralloc_0(&pass)) nomem();
-  if (!stralloc_0(&resp)) nomem();
-
-  if (fd_copy(2,1) == -1) return err_pipe();
-  close(3);
-  if (pipe(pi) == -1) return err_pipe();
-  if (pi[0] != 3) return err_pipe();
-  switch(child = fork()) {
-    case -1:
-      return err_fork();
-    case 0:
-      close(pi[1]);
-      sig_pipedefault();
-      execvp(*childargs, childargs);
-      _exit(1);
-  }
-  close(pi[0]);
-
-  substdio_fdbuf(&ssup,write,pi[1],upbuf,sizeof upbuf);
-  if (substdio_put(&ssup,user.s,user.len) == -1) return err_write();
-  if (substdio_put(&ssup,pass.s,pass.len) == -1) return err_write();
-  if (substdio_put(&ssup,resp.s,resp.len) == -1) return err_write();
-  if (substdio_flush(&ssup) == -1) return err_write();
-
-  close(pi[1]);
-  byte_zero(pass.s,pass.len);
-  byte_zero(upbuf,sizeof upbuf);
-  if (wait_pid(&wstat,child) == -1) return err_child();
-  if (wait_crashed(wstat)) return err_child();
-  if (wait_exitcode(wstat)) { sleep(5); return 1; } /* no */
-  return 0; /* yes */
-}
-
-int auth_login(arg) char *arg;
-{
-  int r;
-
-  if (*arg) {
-    if (r = b64decode(arg,str_len(arg),&user) == 1) return err_input();
-  }
-  else {
-    out("334 VXNlcm5hbWU6\r\n"); flush(); /* Username: */
-    if (authgetl() < 0) return -1;
-    if (r = b64decode(authin.s,authin.len,&user) == 1) return err_input();
-  }
-  if (r == -1) nomem();
-
-  out("334 UGFzc3dvcmQ6\r\n"); flush(); /* Password: */
-
-  if (authgetl() < 0) return -1;
-  if (r = b64decode(authin.s,authin.len,&pass) == 1) return err_input();
-  if (r == -1) nomem();
-
-  if (!user.len || !pass.len) return err_input();
-  return authenticate();  
-}
-
-int auth_plain(arg) char *arg;
-{
-  int r, id = 0;
-
-  if (*arg) {
-    if (r = b64decode(arg,str_len(arg),&slop) == 1) return err_input();
-  }
-  else {
-    out("334 \r\n"); flush();
-    if (authgetl() < 0) return -1;
-    if (r = b64decode(authin.s,authin.len,&slop) == 1) return err_input();
-  }
-  if (r == -1 || !stralloc_0(&slop)) nomem();
-  while (slop.s[id]) id++; /* ignore authorize-id */
-
-  if (slop.len > id + 1)
-    if (!stralloc_copys(&user,slop.s + id + 1)) nomem();
-  if (slop.len > id + user.len + 2)
-    if (!stralloc_copys(&pass,slop.s + id + user.len + 2)) nomem();
-
-  if (!user.len || !pass.len) return err_input();
-  return authenticate();
-}
-
-#ifdef AUTHCRAM
-int auth_cram()
-{
-  int i, r;
-  char *s;
-
-  s = unique;
-  s += fmt_uint(s,getpid());
-  *s++ = '.';
-  s += fmt_ulong(s,(unsigned long) now());
-  *s++ = '@';
-  *s++ = 0;
-
-  if (!stralloc_copys(&pass,"<")) nomem();
-  if (!stralloc_cats(&pass,unique)) nomem();
-  if (!stralloc_cats(&pass,hostname)) nomem();
-  if (!stralloc_cats(&pass,">")) nomem();
-  if (b64encode(&pass,&slop) < 0) nomem();
-  if (!stralloc_0(&slop)) nomem();
-
-  out("334 ");
-  out(slop.s);
-  out("\r\n");
+  if (ofmipup)
+    out("235 ok, go ahead (#2.0.0)\r\n");
+  else
+    out("220 ofmipd.local ESMTP\r\n");
   flush();
-
-  if (authgetl() < 0) return -1;
-  if (r = b64decode(authin.s,authin.len,&slop) == 1) return err_input();
-  if (r == -1 || !stralloc_0(&slop)) nomem();
-
-  i = str_chr(slop.s,' ');
-  s = slop.s + i;
-  while (*s == ' ') ++s;
-  slop.s[i] = 0;
-  if (!stralloc_copys(&user,slop.s)) nomem();
-  if (!stralloc_copys(&resp,s)) nomem();
-
-  if (!user.len || !resp.len) return err_input();
-  return authenticate();
-}
-#endif
-
-struct authcmd {
-  char *text;
-  int (*fun)();
-} authcmds[] = {
-  { "login", auth_login }
-, { "plain", auth_plain }
-#ifdef AUTHCRAM
-, { "cram-md5", auth_cram }
-#endif
-, { 0, err_noauth }
-};
-
-void smtp_auth(arg)
-char *arg;
-{
-  int i;
-  char *cmd = arg;
-
-  if (!hostname || !*childargs)
-  {
-    out("503 auth not available (#5.3.3)\r\n");
-    return;
-  }
-  if (authd) { err_authd(); return; }
-  if (seenmail) { err_authmail(); return; }
-
-  if (!stralloc_copys(&user,"")) nomem();
-  if (!stralloc_copys(&pass,"")) nomem();
-  if (!stralloc_copys(&resp,"")) nomem();
-
-  i = str_chr(cmd,' ');   
-  arg = cmd + i;
-  while (*arg == ' ') ++arg;
-  cmd[i] = 0;
-
-  for (i = 0;authcmds[i].text;++i)
-    if (case_equals(authcmds[i].text,cmd)) break;
-
-  switch (authcmds[i].fun(arg)) {
-    case 0:
-      authd = 1;
-      relayclient = "";
-      remoteinfo = user.s;
-      if (!env_unset("TCPREMOTEINFO")) die_read();
-      if (!env_put2("TCPREMOTEINFO",remoteinfo)) nomem();
-      out("235 ok, go ahead (#2.0.0)\r\n");
-      break;
-    case 1:
-      out("535 authorization failed (#5.7.0)\r\n");
-  }
 }
 
 struct commands smtpcommands[] = {
   { "rcpt", smtp_rcpt, 0 }
 , { "mail", smtp_mail, 0 }
 , { "data", smtp_data, flush }
-, { "auth", smtp_auth, flush }
 , { "quit", smtp_quit, flush }
 , { "helo", smtp_helo, flush }
 , { "ehlo", smtp_ehlo, flush }
@@ -678,22 +449,19 @@ char **argv;
   sig_pipeignore();
 
   fncdb = argv[1];
-  if (fncdb && *fncdb) {
+  if (fncdb) {
     fdcdb = open_read(fncdb);
     if (fdcdb == -1) die_config();
-  } else fncdb = 0;
+  }
 
-  hostname = argv[2];
-  childargs = argv + 3;
-  remoteinfo = env_get("TCPREMOTEINFO");
-  relayclient = env_get("RELAYCLIENT");
+  ofmipup = env_get("OFMIPUP");
 
+  received_init();
   if (leapsecs_init() == -1) die_config();
   if (chdir(auto_qmail) == -1) die_config();
   if (rwhconfig(&rewrite,&idappend) == -1) die_config();
 
-  out("220 ofmipd.local ESMTP\r\n");
+  smtp_greet();
   commands(&ssin,&smtpcommands);
   nomem();
 }
-

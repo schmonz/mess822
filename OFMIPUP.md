@@ -46,23 +46,82 @@ I'm going to try to get there like so:
 3. Add more characterization tests around AUTH behaviors
     - how some verbs now reject unless `RELAYCLIENT` is set
     - how SMTP AUTH causes `RELAYCLIENT` to be set
-4. Write tests for what I want to happen
-    - `ofmipd` does not offer SMTP AUTH
-    - `ofmipup` rejects non-AUTH verbs
+4. Write shell-level tests for what I want to happen
+    - `ofmipd` by itself does not offer SMTP AUTH
+    - `ofmipd` by itself is an open relay
+    - `ofmipup` knows and rejects non-AUTH verbs
         - `530 Authentication required (#5.7.1)`
     - `ofmipup` accepts AUTH verbs
     - `ofmipup` passes/fails checkpassword when it should
     - `ofmipup` execs `ofmipd` as the authenticated user
-    - `ofmipup` sets `RELAYCLIENT` in `ofmipd`'s environment
-    - `ofmipup -u qmaild` accepts AUTH verbs
-    - `ofmipup -u qmaild` accepts non-AUTH verbs
-        - and execs `ofmipd` as `qmaild`
-        - and sends it whatever we were sent, so the convo continues smoothly
 5. Make them pass
+6. Minimize diffs against
+    - Stock mess822
+    - The SMTP AUTH patch
+    - qmail-popup
+7. That's a spike, fam!
+8. Test-drive ofmipup from scratch, including such concerns as:
+    - it's a program
+    - it exits nonzero without the right command-line args
+    - it responds to HELP with a permalink to schmonz.com
+    - when auth succeeds, we're talking to the kid from now on
+    - when auth fails, we're still talking to the parent
+    - when mail is submitted, it goes into the queue
+    - when mail is submitted, it looks just like it would with the patch
+    - when the kid exits 0, parent silently disconnects
+    - when the kid exits with checkpassword codes, tempfail
+    - when the kid exits with ofmipd codes that matter, fail
+    - when the kid exits with ofmipd codes that don't matter, parent silently disconnects
+
+XXX standalone `ofmipd` passes same tests as it did in earlier git
+XXX standalone `ofmipd` matches upstream, plus slight awareness of `ofmipup`
+XXX TCPREMOTEINFO TCPREMOTEIP and where they go in messages
 
 <https://en.wikipedia.org/wiki/SMTP_Authentication#Details>
 <http://cr.yp.to/smtp/client.html>
 
+# How to evaluate this code
+
+Compare against:
+
+- Stock mess822:
+    - one-line patch to `ofmipd`, no change in behavior
+    - XXX TCPREMOTEINFO?
+    - new program, use if you want to require auth before relaying
+    - doesn't do much good by itself, other than maybe qmail design harmony
+    - does do good in conjunction with the QMAILQUEUE patch (applies cleanly?):
+      on submitted mail, run arbitrary administrator-approved filters
+      with the privileges of the submitting user (assuming Unix auth,
+      DJB's original checkpassword or perhaps checkpassword-pam)
+- SMTP AUTH patch: less code, more isolated, functionally identical (or nearly so)
+- qmail-popup: very similar
+    - popup dies on auth failure
+    - seems antisocial to do this in SMTP, and the patch doesn't, so we don't
+
+As `ofmipup`, if I'm asked for...
+
+- **QUIT**? Exit
+- **HELO/EHLO/HELP**? Respond OK
+- **MAIL/RCPT/DATA/FLOOF**? Respond not-OK
+- **AUTH**? `fork()` and `wait()` for exit code
+    - 0? OK, success in AUTH and `ofmipd` wants us to quit
+    - 1? `checkpassword` says username/password no good
+    - 2? `checkpassword` called wrong
+    - 3? `ofmipd` exited some sort of nonzero
+    - 111? `checkpassword` temporary problem
+    - Other nonzero? Unknown kind of not-OK
+
+As `ofmipd`, iff I'm called from `ofmipup`...
+
+- `OFMIPUP` is present in the environment (empty or any other value)
+- Instead of banner, print `235 ok`
+
+Where `qmail-popup` runs as root and exits on **AUTH** failure (that must have been fine for POP3), `ofmipup` runs as root and exits only on **QUIT**, or if its child `ofmipd` has **QUIT**.
+
+Mitigations for me writing in C, in DJB-style C, adapting someone else's patch, running code as root:
+
+- The only decisions `ofmipup` knows how to make are whether to run `checkpassword` and which parameters to pass to it
+- Each new client connection gets a fresh `ofmipup`
 
 ## Security concerns: Design
 

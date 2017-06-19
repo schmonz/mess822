@@ -136,6 +136,10 @@ auto_qmail.o: \
 compile auto_qmail.c
 	./compile auto_qmail.c
 
+base64.o: \
+compile base64.c base64.h
+	./compile base64.c
+
 byte_chr.o: \
 compile byte_chr.c byte.h
 	./compile byte_chr.c
@@ -151,6 +155,10 @@ compile byte_cr.c byte.h
 byte_rchr.o: \
 compile byte_rchr.c byte.h
 	./compile byte_rchr.c
+
+byte_zero.o: \
+compile byte_zero.c byte.h
+	./compile byte_zero.c
 
 caldate_fmjd.o: \
 compile caldate_fmjd.c caldate.h
@@ -440,7 +448,7 @@ make-makelib warn-auto.sh systype
 	chmod 755 makelib
 
 man: \
-iftocc.0 ofmipd.0 ofmipname.0 new-inject.0 rewriting.0 rewritehost.0 \
+iftocc.0 ofmipd.0 ofmipname.0 ofmipup.0 new-inject.0 rewriting.0 rewritehost.0 \
 822header.0 822field.0 822date.0 822received.0 822print.0 mess822.0 \
 mess822_addr.0 mess822_date.0 mess822_fold.0 mess822_quote.0 \
 mess822_token.0 mess822_when.0
@@ -544,13 +552,11 @@ rewritehost.h rwhconfig.h strerr.h
 
 ofmipd: \
 load ofmipd.o rewritehost.o rwhconfig.o config.o qmail.o auto_qmail.o \
-base64.o byte_zero.o \
 timeoutread.o timeoutwrite.o commands.o env.a cdb.a mess822.a \
 libtai.a getln.a strerr.a substdio.a stralloc.a alloc.a error.a \
 case.a str.a fs.a open.a wait.a sig.a fd.a
 	./load ofmipd rewritehost.o rwhconfig.o config.o qmail.o \
 	auto_qmail.o timeoutread.o timeoutwrite.o commands.o env.a \
-	base64.o byte_zero.o \
 	cdb.a mess822.a libtai.a getln.a strerr.a substdio.a \
 	stralloc.a alloc.a error.a case.a str.a fs.a open.a wait.a \
 	sig.a fd.a 
@@ -583,6 +589,30 @@ open.h substdio.h subfd.h substdio.h stralloc.h gen_alloc.h getln.h \
 exit.h
 	./compile ofmipname.c
 
+ofmipup: \
+load ofmipup.o \
+base64.o byte_zero.o \
+timeoutread.o timeoutwrite.o commands.o env.a \
+getln.a strerr.a substdio.a stralloc.a alloc.a error.a \
+case.a str.a fs.a open.a wait.a sig.a fd.a
+	./load ofmipup \
+	base64.o byte_zero.o \
+	timeoutread.o timeoutwrite.o commands.o env.a \
+	getln.a strerr.a substdio.a \
+	stralloc.a alloc.a error.a case.a str.a fs.a open.a wait.a \
+	sig.a fd.a 
+
+ofmipup.0: \
+ofmipup.8
+	nroff -man ofmipup.8 > ofmipup.0
+
+ofmipup.o: \
+compile ofmipup.c commands.h sig.h substdio.h \
+readwrite.h timeoutread.h timeoutwrite.h stralloc.h gen_alloc.h \
+substdio.h stralloc.h env.h exit.h str.h \
+stralloc.h
+	./compile ofmipup.c
+
 open.a: \
 makelib open_read.o open_trunc.o
 	./makelib open.a open_read.o open_trunc.o
@@ -608,7 +638,7 @@ caltime.h tai.h uint64.h
 	./compile parsedate.c
 
 prog: \
-iftocc ofmipd ofmipname new-inject rts 822header 822field 822date \
+iftocc ofmipd ofmipname ofmipup new-inject rts 822header 822field 822date \
 822received 822print tokenize addrlist quote parsedate
 
 qmail.o: \
@@ -692,7 +722,7 @@ FILES BLURB README TODO THANKS CHANGES FILES VERSION SYSDEPS INSTALL \
 TARGETS Makefile hier.c 822header.1 822header.c 822field.1 822field.c \
 822date.1 822date.c 822received.1 822received.c 822print.1 822print.c \
 rewriting.5 new-inject.1 new-inject.c rts.sh rts.tests rts.rw rts.mft \
-rts.exp ofmipd.8 ofmipd.c ofmipname.8 ofmipname.c iftocc.1 iftocc.c \
+rts.exp ofmipd.8 ofmipd.c ofmipname.8 ofmipname.c ofmipup.8 ofmipup.c iftocc.1 iftocc.c \
 tokenize.c addrlist.c parsedate.c quote.c mess822.3 mess822.h \
 mess822_date.3 mess822_date.c mess822_fold.3 mess822_fold.c \
 mess822_quote.3 mess822_quote.c mess822_token.3 mess822_token.c \

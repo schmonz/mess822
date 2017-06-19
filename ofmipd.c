@@ -44,7 +44,14 @@ int exit1()
     _exit(1);
 }
 
-void die_read() { exit1(); }
+void die_read()
+{
+  if (ofmipup)
+    _exit(0);
+  else
+    _exit(1);
+}
+
 void nomem() { out("451 out of memory (#4.3.0)\r\n"); flush(); exit1(); }
 void die_config() { out("451 unable to read configuration (#4.3.0)\r\n"); flush(); exit1(); }
 void smtp_quit() { out("221 ofmipd.local\r\n"); flush(); _exit(0); }
@@ -343,8 +350,8 @@ void blast()
     if (flagheader)
       if (!mess822_ok(&line)) {
         finishheader();
-	flagheader = 0;
-	if (line.len > 1) put("\n",1);
+    flagheader = 0;
+    if (line.len > 1) put("\n",1);
       }
     if (!flagheader)
       put(line.s,line.len);

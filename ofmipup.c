@@ -144,7 +144,7 @@ int authenticate(void)
     case 0: /* XXX child here */
       close(pi[1]);
       sig_pipedefault();
-      if (!env_put2("OFMIPUP","")) die_nomem();
+      if (!env_put("OFMIPUP")) die_nomem();
       execvp(*childargs, childargs);
       _exit(1);
   }

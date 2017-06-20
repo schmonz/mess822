@@ -61,14 +61,25 @@ set_fakes_for_test() {
 	mkdir -p "${CONF_QMAIL}/bin" "${CONF_QMAIL}/include" "${CONF_QMAIL}/log"
 	[ "/var/qmail" = "`head -1 conf-qmail`" ] && echo "${CONF_QMAIL}" > conf-qmail || true
 
-	echo "#!/bin/sh\ntee ${CONF_QMAIL}/log/message\nexit 31" > "${CONF_QMAIL}/bin/log-and-reject"
+	echo >"${CONF_QMAIL}/bin/log-and-reject" \
+'#!/bin/sh
+tee '"${CONF_QMAIL}/log/message"'
+exit 31'
 	chmod +x "${CONF_QMAIL}/bin/log-and-reject"
-	echo "#!/bin/sh\nqmail-qfilter ${CONF_QMAIL}/bin/log-and-reject" > "${CONF_QMAIL}/bin/qmail-queue"
+
+	echo >"${CONF_QMAIL}/bin/qmail-queue" \
+'#!/bin/sh
+qmail-qfilter '"${CONF_QMAIL}/bin/log-and-reject"
 	chmod +x "${CONF_QMAIL}/bin/qmail-queue"
 
-	echo '#!/bin/sh\nexec "$@"' > ${CONF_QMAIL}/bin/checkpassword-succeeds
+	echo >"${CONF_QMAIL}/bin/checkpassword-succeeds" \
+'#!/bin/sh
+exec "$@"'
 	chmod +x "${CONF_QMAIL}/bin/checkpassword-succeeds"
-	echo '#!/bin/sh\nexit 1' > ${CONF_QMAIL}/bin/checkpassword-fails
+
+	echo >"${CONF_QMAIL}/bin/checkpassword-fails" \
+'#!/bin/sh
+exit 1'
 	chmod +x "${CONF_QMAIL}/bin/checkpassword-fails"
 
 	if [ ! -f "${CONF_QMAIL}/include/sleep.h" ]; then
@@ -108,7 +119,9 @@ test_unauth_verbs() {
 		"it knows about EHLO" \
 		"${CHILD_HOSTNAME}" \
 		"EHLO" \
-		"250-${CHILD_HOSTNAME}\n250-PIPELINING\n250 8BITMIME"
+		"250-${CHILD_HOSTNAME}"'
+250-PIPELINING
+250 8BITMIME'
 
 	test_verb \
 		"it knows about RSET" \
@@ -157,7 +170,9 @@ test_unauth_verbs() {
 		"250 ok" \
 		"DATA" \
 		"354 go ahead" \
-		"don't mind if I do.\nI got lots to say.\n." \
+		"don't mind if I do."'
+I got lots to say.
+.' \
 		"554 mail server permanently rejected message (#5.3.0)"
 
 	test_verb \
@@ -216,7 +231,11 @@ test_auth_verbs() {
 		"it knows about EHLO" \
 		"${PARENT_HOSTNAME}" \
 		"EHLO" \
-		"250-${PARENT_HOSTNAME}\n250-AUTH LOGIN PLAIN\n250-AUTH=LOGIN PLAIN\n250-PIPELINING\n250 8BITMIME"
+		"250-${PARENT_HOSTNAME}"'
+250-AUTH LOGIN PLAIN
+250-AUTH=LOGIN PLAIN
+250-PIPELINING
+250 8BITMIME'
 
 	test_verb \
 		"it knows about AUTH but needs a type" \
@@ -302,11 +321,13 @@ test_verb() {
 	_actual=""
 
 	while [ $# -ge 2 ]; do
-		[ -n "$2" ] && _expected="${_expected}\n$2"
+		[ -n "$2" ] && _expected="${_expected}"'
+'"$2"
 		if [ -z "${_actual}" ]; then
 			_actual="$1"
 		else
-			_actual="${_actual}\n$1"
+			_actual="${_actual}"'
+'"$1"
 		fi
 		shift; shift
 	done

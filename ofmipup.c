@@ -38,7 +38,7 @@ substdio ssout = SUBSTDIO_FDBUF(safewrite,1,ssoutbuf,sizeof ssoutbuf);
 char ssinbuf[1024];
 substdio ssin = SUBSTDIO_FDBUF(saferead,0,ssinbuf,sizeof ssinbuf);
 
-void puts(s) char *s;
+void out(s) char *s;
 {
   substdio_puts(&ssout,s);
 }
@@ -49,13 +49,13 @@ void flush()
 /* XXX not exactly "err" when I use it to print regular SMTP responses */
 void err(s) char *s;
 {
-    puts(s);
-    puts("\r\n");
+    out(s);
+    out("\r\n");
     flush();
 }
 
 /* XXX make these more like popup's */
-void die_usage() { puts("usage: ofmipup hostname checkpassword ofmipd\n"); flush(); die(); }
+void die_usage() { out("usage: ofmipup hostname checkpassword ofmipd\n"); flush(); die(); }
 void die_nomem() { err("451 out of memory (#4.3.0)"); die(); }
 
 int err_input() { err("501 malformed auth input (#5.5.4)"); return -1; }
@@ -88,18 +88,18 @@ char upbuf[128];
 
 void smtp_helo(arg) char *arg;
 {
-  puts("250 ");
-  puts(hostname);
-  puts("\r\n");
+  out("250 ");
+  out(hostname);
+  out("\r\n");
 }
 
 void smtp_ehlo(arg) char *arg;
 {
-  puts("250-");
-  puts(hostname);
-  puts("\r\n250-AUTH LOGIN PLAIN");
-  puts("\r\n250-AUTH=LOGIN PLAIN");
-  puts("\r\n250-PIPELINING\r\n250 8BITMIME\r\n");
+  out("250-");
+  out(hostname);
+  out("\r\n250-AUTH LOGIN PLAIN");
+  out("\r\n250-AUTH=LOGIN PLAIN");
+  out("\r\n250-PIPELINING\r\n250 8BITMIME\r\n");
 }
 
 int authgetl(void) {
@@ -144,7 +144,7 @@ int authenticate(void)
     case 0: /* XXX child here */
       close(pi[1]);
       sig_pipedefault();
-      if (!env_put("OFMIPUP")) die_nomem();
+      if (!env_put2("OFMIPUP", "")) die_nomem();
       execvp(*childargs, childargs);
       _exit(1);
   }
@@ -262,16 +262,16 @@ char *arg;
 
 void smtp_greet()
 {
-  puts("220 ");
-  puts(hostname);
-  puts(" ESMTP\r\n");
+  out("220 ");
+  out(hostname);
+  out(" ESMTP\r\n");
   flush();
 }
 
 void smtp_quit() {
-  puts("221 ");
-  puts(hostname);
-  puts("\r\n");
+  out("221 ");
+  out(hostname);
+  out("\r\n");
   flush();
   die();
 }

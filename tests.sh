@@ -59,6 +59,7 @@ unconfigure_sleep_workaround() {
 
 set_fakes_for_test() {
 	mkdir -p "${CONF_QMAIL}/bin" "${CONF_QMAIL}/include" "${CONF_QMAIL}/log"
+	chmod 777 "${CONF_QMAIL}/log"
 	[ "/var/qmail" = "`head -1 conf-qmail`" ] && echo "${CONF_QMAIL}" > conf-qmail || true
 
 	echo >"${CONF_QMAIL}/bin/log-and-reject" \

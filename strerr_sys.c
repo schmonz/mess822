@@ -1,7 +1,7 @@
 #include "error.h"
 #include "strerr.h"
 
-struct strerr strerr_sys;
+struct strerr strerr_sys = {0,0,0,0};
 
 void strerr_sysinit()
 {

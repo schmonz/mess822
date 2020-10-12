@@ -133,8 +133,8 @@ compile auto_home.c
 	./compile auto_home.c
 
 auto_qmail.c: \
-auto-str conf-qmail
-	./auto-str auto_qmail `head -1 conf-qmail` > auto_qmail.c
+auto-str
+	./auto-str auto_qmail `pwd` > auto_qmail.c
 
 auto_qmail.o: \
 compile auto_qmail.c
@@ -714,7 +714,7 @@ caldate_mjd.c caldate_scan.c leapsecs.h leapsecs.dat leapsecs_add.c \
 leapsecs_init.c leapsecs_read.c leapsecs_sub.c caltime.h \
 caltime_fmt.c caltime_scan.c caltime_tai.c caltime_utc.c scan.h \
 scan_ulong.c scan_long.c scan_sign.c uint64.h1 uint64.h2 tryulong64.c \
-sgetopt.h sgetopt.c subgetopt.h subgetopt.c conf-qmail auto_qmail.h \
+sgetopt.h sgetopt.c subgetopt.h subgetopt.c auto_qmail.h \
 qmail.h qmail.c constmap.h constmap.c wait.h wait_pid.c trywaitp.c \
 fork.h1 fork.h2 tryvfork.c fd.h fd_copy.c fd_move.c sig.h sig_catch.c \
 sig_pipe.c trysgact.c commands.3 commands.h commands.c timeoutread.h \

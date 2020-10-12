@@ -179,7 +179,6 @@ install.o
 hier.o
 auto_home.c
 auto_home.o
-install
 setup
 instcheck.o
 instcheck

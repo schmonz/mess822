@@ -4,6 +4,10 @@ SHELL=/bin/sh
 
 default: it
 
+clean: \
+	TARGETS
+	rm -f `cat TARGETS`
+
 822date: \
 load 822date.o libtai.a mess822.a getln.a strerr.a substdio.a \
 stralloc.a alloc.a error.a str.a case.a fs.a

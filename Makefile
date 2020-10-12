@@ -380,7 +380,7 @@ compile instcheck.c strerr.h error.h readwrite.h exit.h
 	./compile instcheck.c
 
 it: \
-prog man
+prog
 
 leapsecs_add.o: \
 compile leapsecs_add.c leapsecs.h tai.h uint64.h

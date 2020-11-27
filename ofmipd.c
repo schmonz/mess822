@@ -429,13 +429,13 @@ char **argv;
   sig_pipeignore();
 
   fncdb = argv[1];
-  if (fncdb) {
+  if (0 && fncdb) {
     fdcdb = open_read(fncdb);
     if (fdcdb == -1) die_config();
   }
 
   received_init();
-  if (leapsecs_init() == -1) die_config();
+  if (0 && leapsecs_init() == -1) die_config();
   if (chdir(auto_qmail) == -1) die_config();
   if (rwhconfig(&rewrite,&idappend) == -1) die_config();
 
